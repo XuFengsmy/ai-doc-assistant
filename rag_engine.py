@@ -10,11 +10,12 @@ from langchain_core.runnables import RunnablePassthrough
 
 # ================= 配置区 =================
 # 填入你的 Key
-try:
-    os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
-except:
-    # 本地运行时备用
-    os.environ["OPENAI_API_KEY"] = "sk-xxxxxxxxxxxxxx"
+if "OPENAI_API_KEY" in st.secrets:
+    api_key = st.secrets["OPENAI_API_KEY"]
+elif "SILICON_API_KEY" in st.secrets:
+    api_key = st.secrets["SILICON_API_KEY"]
+else:
+    api_key = "local_test_key" # 本地测试用
 SILICON_BASE_URL = "https://api.siliconflow.cn/v1"
 
 EMBEDDING_MODEL = "BAAI/bge-m3"
@@ -26,6 +27,8 @@ class RAGPro:
         # 1. 初始化 Embedding 模型 (记得加 chunk_size 防止报错)
         self.embeddings = OpenAIEmbeddings(
             model=EMBEDDING_MODEL,
+            openai_api_key=api_key,
+            openai_api_base=base_url,
             check_embedding_ctx_length=False,
             chunk_size=50  # 关键修正
         )
@@ -33,6 +36,8 @@ class RAGPro:
         # 2. 初始化 LLM
         self.llm = ChatOpenAI(
             model=LLM_MODEL,
+            openai_api_key=api_key,
+            openai_api_base=base_url,
             temperature=0.1
         )
 
@@ -58,8 +63,11 @@ class RAGPro:
 
         # 入库 (强制刷新数据库)
         if os.path.exists(self.db_path):
-            import shutil
-            shutil.rmtree(self.db_path)  # 删除旧库
+            try:
+                import shutil
+                shutil.rmtree(self.db_path) # 删除旧库
+            except:
+                pass
 
         print("💾 正在建立向量索引 (可能需要几十秒)...")
         self.vector_store = Chroma.from_documents(
@@ -144,4 +152,5 @@ if __name__ == "__main__":
     except Exception as e:
 
         print(f"❌ 报错: {e}")
+
 

@@ -1,0 +1,8 @@
+streamlit
+langchain
+langchain-community
+langchain-openai
+langchain-chroma
+chromadb
+pypdf
+streamlit-pdf-viewer

@@ -10,8 +10,11 @@ from langchain_core.runnables import RunnablePassthrough
 
 # ================= 配置区 =================
 # 填入你的 Key
-SILICON_API_KEY = os.getenv('API_KEY')
-SILICON_BASE_URL = os.getenv('BASE_URL')
+try:
+    SILICON_API_KEY = st.secrets["SILICON_API_KEY"]
+except:
+    SILICON_API_KEY = os.getenv("API_KEY")
+SILICON_BASE_URL = "https://api.siliconflow.cn/v1"
 
 EMBEDDING_MODEL = "BAAI/bge-m3"
 LLM_MODEL = "deepseek-ai/DeepSeek-V3"
@@ -142,4 +145,5 @@ if __name__ == "__main__":
         print(f"🤖 回答: {result['answer']}")
         print(f"📖 来源页码: 第 {result['sources']} 页")
     except Exception as e:
+
         print(f"❌ 报错: {e}")

@@ -11,9 +11,10 @@ from langchain_core.runnables import RunnablePassthrough
 # ================= 配置区 =================
 # 填入你的 Key
 try:
-    SILICON_API_KEY = st.secrets["SILICON_API_KEY"]
+    os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 except:
-    SILICON_API_KEY = os.getenv("API_KEY")
+    # 本地运行时备用
+    os.environ["OPENAI_API_KEY"] = "sk-xxxxxxxxxxxxxx"
 SILICON_BASE_URL = "https://api.siliconflow.cn/v1"
 
 EMBEDDING_MODEL = "BAAI/bge-m3"
@@ -25,8 +26,6 @@ class RAGPro:
         # 1. 初始化 Embedding 模型 (记得加 chunk_size 防止报错)
         self.embeddings = OpenAIEmbeddings(
             model=EMBEDDING_MODEL,
-            openai_api_key=SILICON_API_KEY,
-            openai_api_base=SILICON_BASE_URL,
             check_embedding_ctx_length=False,
             chunk_size=50  # 关键修正
         )
@@ -34,8 +33,6 @@ class RAGPro:
         # 2. 初始化 LLM
         self.llm = ChatOpenAI(
             model=LLM_MODEL,
-            openai_api_key=SILICON_API_KEY,
-            openai_api_base=SILICON_BASE_URL,
             temperature=0.1
         )
 
@@ -147,3 +144,4 @@ if __name__ == "__main__":
     except Exception as e:
 
         print(f"❌ 报错: {e}")
+

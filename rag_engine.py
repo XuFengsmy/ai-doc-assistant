@@ -1,5 +1,6 @@
 import os
 import time
+import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -152,5 +153,6 @@ if __name__ == "__main__":
     except Exception as e:
 
         print(f"❌ 报错: {e}")
+
 
 

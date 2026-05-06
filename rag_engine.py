@@ -1,4 +1,5 @@
 import os
+import uuid
 import streamlit as st  # 必须导入 streamlit
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -48,7 +49,6 @@ class RAGPro:
             temperature=0.1
         )
         
-        self.db_path = "./chroma_db_pro"
         self.vector_store = None
 
     def load_and_index(self, pdf_path):
@@ -57,32 +57,37 @@ class RAGPro:
         docs = loader.load()
         
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500, 
+            chunk_size=500,
             chunk_overlap=100
         )
-        splits = text_splitter.split_documents(docs)
+        splits = [
+            doc for doc in text_splitter.split_documents(docs)
+            if doc.page_content.strip()
+        ]
 
-        # 尝试清理旧数据库 (防止权限错误)
-        if os.path.exists(self.db_path):
-            try:
-                import shutil
-                shutil.rmtree(self.db_path)
-            except:
-                pass 
-        
+        if not splits:
+            raise ValueError("PDF 中没有可检索的文字内容，请上传文字版 PDF。")
+
+        # Chroma only accepts simple scalar metadata values.
+        # PyPDFLoader can include extra PDF metadata that is not needed for Q&A.
+        for doc in splits:
+            page = doc.metadata.get("page", 0)
+            doc.metadata = {
+                "page": int(page) if isinstance(page, int) or str(page).isdigit() else 0,
+                "source": os.path.basename(str(doc.metadata.get("source", pdf_path))),
+            }
+
+        collection_name = f"doc_{uuid.uuid4().hex}"
         self.vector_store = Chroma.from_documents(
             documents=splits,
             embedding=self.embeddings,
-            persist_directory=self.db_path
+            collection_name=collection_name,
         )
         print("✅ 知识库构建完成！")
 
     def query(self, question):
         if not self.vector_store:
-            self.vector_store = Chroma(
-                persist_directory=self.db_path, 
-                embedding_function=self.embeddings
-            )
+            raise ValueError("请先上传 PDF 并等待知识库构建完成。")
         
         retriever = self.vector_store.as_retriever(search_kwargs={"k": 3})
         relevant_docs = retriever.invoke(question)

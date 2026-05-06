@@ -14,9 +14,10 @@ st.title("📂 毕业设计：万能 AI 文档助手")
 
 
 # ================= 2. 辅助函数 =================
-@st.cache_resource
 def load_bot():
-    return RAGPro()
+    if "rag_bot" not in st.session_state:
+        st.session_state.rag_bot = RAGPro()
+    return st.session_state.rag_bot
 
 
 def save_uploaded_file(uploaded_file):

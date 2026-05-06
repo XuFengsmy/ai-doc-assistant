@@ -1,8 +1,15 @@
-streamlit
-langchain
-langchain-community
-langchain-openai
-langchain-chroma
-chromadb
-pypdf
-streamlit-pdf-viewer
+streamlit==1.57.0
+langchain==1.2.17
+langchain-community==0.4.1
+langchain-openai==1.2.1
+langchain-chroma==1.1.0
+chromadb==1.5.9
+pypdf==6.10.2
+streamlit-pdf-viewer==0.0.29
+
+# Keep Chroma's telemetry protobuf stack on a compatible set.
+protobuf==6.33.6
+opentelemetry-api==1.41.1
+opentelemetry-sdk==1.41.1
+opentelemetry-proto==1.41.1
+opentelemetry-exporter-otlp-proto-grpc==1.41.1

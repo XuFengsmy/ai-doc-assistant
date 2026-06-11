@@ -1,6 +1,7 @@
 import os
 import uuid
 import streamlit as st  # 必须导入 streamlit
+from openai import AuthenticationError, PermissionDeniedError
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
@@ -12,24 +13,49 @@ from langchain_core.runnables import RunnablePassthrough
 # ================= 配置区 =================
 EMBEDDING_MODEL = "BAAI/bge-m3"
 LLM_MODEL = "deepseek-ai/DeepSeek-V3"
+DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
+
+
+def read_config(*names, default=None):
+    for name in names:
+        value = os.getenv(name)
+        if value:
+            return value.strip()
+
+    try:
+        for name in names:
+            value = st.secrets.get(name)
+            if value:
+                return str(value).strip()
+    except Exception:
+        pass
+
+    return default
+
+
+def provider_auth_error():
+    return (
+        "SiliconFlow API Key 被拒绝。请在 Streamlit Cloud 的 Secrets 中配置 "
+        "SILICON_API_KEY（或 SILICONFLOW_API_KEY/API_KEY），不要只配置 OpenAI 官方的 "
+        "OPENAI_API_KEY；本项目当前调用的是 SiliconFlow 的模型接口。"
+    )
+
 
 class RAGPro:
     def __init__(self):
-        # -------------------------------------------------------
-        # 🛡️ 安全区：在函数内部定义变量，防止 NameError
-        # -------------------------------------------------------
-        
-        # 1. 定义 Base URL (直接写死在这里，绝对不会找不到)
-        base_url = "https://api.siliconflow.cn/v1"
+        base_url = read_config(
+            "SILICON_BASE_URL",
+            "SILICONFLOW_BASE_URL",
+            "BASE_URL",
+            default=DEFAULT_BASE_URL,
+        )
+        api_key = read_config("SILICON_API_KEY", "SILICONFLOW_API_KEY", "API_KEY")
 
-        # 2. 获取 API Key
-        # 优先读取 Streamlit Secrets，如果没有就用空字符串占位
-        if "OPENAI_API_KEY" in st.secrets:
-            api_key = st.secrets["OPENAI_API_KEY"]
-        elif "SILICON_API_KEY" in st.secrets:
-            api_key = st.secrets["SILICON_API_KEY"]
-        else:
-            api_key = "key_not_found"
+        if not api_key:
+            raise ValueError(
+                "缺少 SiliconFlow API Key。请在 Streamlit Cloud 的 Secrets 中配置 "
+                "SILICON_API_KEY。"
+            )
 
         # -------------------------------------------------------
         # 👇 初始化模型 👇
@@ -78,11 +104,14 @@ class RAGPro:
             }
 
         collection_name = f"doc_{uuid.uuid4().hex}"
-        self.vector_store = Chroma.from_documents(
-            documents=splits,
-            embedding=self.embeddings,
-            collection_name=collection_name,
-        )
+        try:
+            self.vector_store = Chroma.from_documents(
+                documents=splits,
+                embedding=self.embeddings,
+                collection_name=collection_name,
+            )
+        except (AuthenticationError, PermissionDeniedError) as exc:
+            raise RuntimeError(provider_auth_error()) from exc
         print("✅ 知识库构建完成！")
 
     def query(self, question):
@@ -110,7 +139,10 @@ class RAGPro:
             | StrOutputParser()
         )
         
-        answer = chain.invoke(question)
+        try:
+            answer = chain.invoke(question)
+        except (AuthenticationError, PermissionDeniedError) as exc:
+            raise RuntimeError(provider_auth_error()) from exc
 
         return {
             "answer": answer,

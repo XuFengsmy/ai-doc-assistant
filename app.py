@@ -56,14 +56,18 @@ with st.sidebar:
         # 如果当前上传的文件名 != 上一次的文件名，说明换新书了，需要重新学习
         if "last_uploaded_file" not in st.session_state or st.session_state.last_uploaded_file != uploaded_file.name:
             with st.spinner("🤖 AI 正在阅读并消化文档 (RAG处理中)..."):
-                # 调用后端引擎
-                bot = load_bot()
-                bot.load_and_index(saved_path)
+                try:
+                    # 调用后端引擎
+                    bot = load_bot()
+                    bot.load_and_index(saved_path)
 
-                # 更新状态
-                st.session_state.last_uploaded_file = uploaded_file.name
-                st.session_state.bot_ready = True
-                st.toast("✅ 知识库构建完成！可以开始提问了。", icon="🎉")
+                    # 更新状态
+                    st.session_state.last_uploaded_file = uploaded_file.name
+                    st.session_state.bot_ready = True
+                    st.toast("✅ 知识库构建完成！可以开始提问了。", icon="🎉")
+                except Exception as e:
+                    st.session_state.bot_ready = False
+                    st.error(f"知识库构建失败：{e}")
     else:
         # 如果没上传文件，提示用户
         st.session_state.bot_ready = False

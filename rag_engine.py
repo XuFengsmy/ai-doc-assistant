@@ -16,28 +16,41 @@ LLM_MODEL = "deepseek-ai/DeepSeek-V3"
 DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
 
 
-def read_config(*names, default=None):
+def clean_config_value(value):
+    return str(value).strip().strip('"').strip("'")
+
+
+def clean_api_key(value):
+    value = clean_config_value(value)
+    if value.lower().startswith("bearer "):
+        value = value[7:].strip()
+    return value
+
+
+def read_config(*names, default=None, secret=False):
     for name in names:
         value = os.getenv(name)
         if value:
-            return value.strip()
+            return clean_api_key(value) if secret else clean_config_value(value)
 
     try:
         for name in names:
             value = st.secrets.get(name)
             if value:
-                return str(value).strip()
+                return clean_api_key(value) if secret else clean_config_value(value)
     except Exception:
         pass
 
     return default
 
 
-def provider_auth_error():
+def provider_auth_error(exc):
+    detail = str(exc).replace("\n", " ").strip()
     return (
-        "SiliconFlow API Key 被拒绝。请在 Streamlit Cloud 的 Secrets 中配置 "
-        "SILICON_API_KEY（或 SILICONFLOW_API_KEY/API_KEY），不要只配置 OpenAI 官方的 "
-        "OPENAI_API_KEY；本项目当前调用的是 SiliconFlow 的模型接口。"
+        "SiliconFlow 请求被拒绝。请检查：1. Secrets 里的 SILICON_API_KEY 是否是硅基流动 "
+        "API Key，且不要包含 Bearer 前缀；2. 账号余额/额度是否可用；3. 账号是否有当前模型权限；"
+        "4. 是否开启了 IP 白名单。服务商返回："
+        f"{detail}"
     )
 
 
@@ -49,7 +62,12 @@ class RAGPro:
             "BASE_URL",
             default=DEFAULT_BASE_URL,
         )
-        api_key = read_config("SILICON_API_KEY", "SILICONFLOW_API_KEY", "API_KEY")
+        api_key = read_config(
+            "SILICON_API_KEY",
+            "SILICONFLOW_API_KEY",
+            "API_KEY",
+            secret=True,
+        )
 
         if not api_key:
             raise ValueError(
@@ -76,6 +94,7 @@ class RAGPro:
         )
         
         self.vector_store = None
+        self.config_summary = f"Base URL: {base_url}；API Key: 已读取"
 
     def load_and_index(self, pdf_path):
         print(f"📚 正在处理文件: {pdf_path}")
@@ -111,7 +130,7 @@ class RAGPro:
                 collection_name=collection_name,
             )
         except (AuthenticationError, PermissionDeniedError) as exc:
-            raise RuntimeError(provider_auth_error()) from exc
+            raise RuntimeError(provider_auth_error(exc)) from exc
         print("✅ 知识库构建完成！")
 
     def query(self, question):
@@ -142,7 +161,7 @@ class RAGPro:
         try:
             answer = chain.invoke(question)
         except (AuthenticationError, PermissionDeniedError) as exc:
-            raise RuntimeError(provider_auth_error()) from exc
+            raise RuntimeError(provider_auth_error(exc)) from exc
 
         return {
             "answer": answer,

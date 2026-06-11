@@ -41,6 +41,12 @@ with st.sidebar:
     st.header("📤 上传文档")
     st.caption("请上传 PDF 文件，AI 将自动学习内容。")
 
+    with st.expander("API 配置状态"):
+        try:
+            st.caption(load_bot().config_summary)
+        except Exception as e:
+            st.warning(str(e))
+
     # Streamlit 的文件上传组件
     uploaded_file = st.file_uploader("选择文件", type=["pdf"])
 
